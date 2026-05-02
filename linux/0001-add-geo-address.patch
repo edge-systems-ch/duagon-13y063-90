@@ -1,0 +1,45 @@
+diff --git a/hidapi/hidapi.h b/hidapi/hidapi.h
+index 744ceb0..e7c245d 100644
+--- a/hidapi/hidapi.h
++++ b/hidapi/hidapi.h
+@@ -29,6 +29,8 @@
+ 
+ #include <wchar.h>
+ 
++#define DUAGON_GEO_ADDRESS_INDEX  6
++
+ /* #480: this is to be refactored properly for v1.0 */
+ #ifdef _WIN32
+    #ifndef HID_API_NO_EXPORT_DEFINE
+@@ -163,6 +165,8 @@ extern "C" {
+ 			wchar_t *manufacturer_string;
+ 			/** Product string */
+ 			wchar_t *product_string;
++			/** duagon Geographical Address */
++			wchar_t *duagon_geo_address;
+ 			/** Usage Page for this Device/Interface
+ 			    (Windows/Mac/hidraw only) */
+ 			unsigned short usage_page;
+diff --git a/libusb/hid.c b/libusb/hid.c
+index 0981d34..39bf25f 100644
+--- a/libusb/hid.c
++++ b/libusb/hid.c
+@@ -683,6 +683,10 @@ static struct hid_device_info * create_device_info_for_device(libusb_device *dev
+ 	if (desc->iProduct > 0)
+ 		cur_dev->product_string = get_usb_string(handle, desc->iProduct);
+ 
++	/* duagon Geographical Address */
++	cur_dev->duagon_geo_address = get_usb_string(handle, DUAGON_GEO_ADDRESS_INDEX);
++
++
+ 	return cur_dev;
+ }
+ 
+@@ -858,6 +862,7 @@ void  HID_API_EXPORT hid_free_enumeration(struct hid_device_info *devs)
+ 		free(d->serial_number);
+ 		free(d->manufacturer_string);
+ 		free(d->product_string);
++		free(d->duagon_geo_address);
+ 		free(d);
+ 		d = next;
+ 	}

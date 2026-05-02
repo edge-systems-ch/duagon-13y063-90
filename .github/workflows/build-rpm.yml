@@ -1,0 +1,153 @@
+name: Build duagon-13y063-90 RPM from tag (Rocky 9/10)
+
+on:
+  push:
+    tags:
+      - "[0-9]+.[0-9]+.[0-9]+"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        target:
+          - label: el9
+            image: docker.io/rockylinux/rockylinux:9
+          - label: el10
+            image: docker.io/rockylinux/rockylinux:10
+
+    container:
+      image: ${{ matrix.target.image }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Extract version from tag
+        id: vars
+        run: |
+          VERSION="${GITHUB_REF_NAME}"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+
+      - name: Install build tools
+        run: |
+          dnf -y install 'dnf-command(config-manager)' || true
+          dnf -y config-manager --set-enabled crb || true
+
+          dnf -y install \
+            rpm-build \
+            rpmdevtools \
+            redhat-rpm-config \
+            rpm-sign \
+            gnupg2 \
+            gcc \
+            make \
+            tar \
+            gzip
+
+      - name: Setup rpmbuild tree
+        run: |
+          rpmdev-setuptree
+          ls -R "$HOME/rpmbuild"
+
+      - name: Prepare sources and spec
+        run: |
+          NAME="duagon-13y063-90"
+          VERSION="${{ steps.vars.outputs.version }}"
+
+          SRC_ROOT="/tmp/${NAME}-${VERSION}"
+          mkdir -p "${SRC_ROOT}"
+
+          cp -r \
+            13Y063.c \
+            README.md \
+            ReleaseNotes_13Y063-90.md \
+            cJSON \
+            hidapi \
+            license.txt \
+            linux \
+            duagon-13y063-90.spec \
+            "${SRC_ROOT}/"
+
+          echo "Source tree:"
+          ls -R "${SRC_ROOT}"
+
+          tar -C /tmp -czf "$HOME/rpmbuild/SOURCES/${NAME}-${VERSION}.tar.gz" "${NAME}-${VERSION}"
+
+          sed -E "s/^Version:[[:space:]]+.*/Version:        ${VERSION}/" \
+            "${SRC_ROOT}/duagon-13y063-90.spec" > "$HOME/rpmbuild/SPECS/duagon-13y063-90.spec"
+
+          head -n 20 "$HOME/rpmbuild/SPECS/duagon-13y063-90.spec"
+
+      - name: Build RPM
+        run: |
+          rpmbuild -ba "$HOME/rpmbuild/SPECS/duagon-13y063-90.spec"
+
+          echo "Built RPMs:"
+          find "$HOME/rpmbuild" -type f \( -name "*.rpm" -o -name "*.src.rpm" \)
+
+      - name: Import GPG key and sign RPMs
+        env:
+          GPG_PRIVATE_KEY: ${{ secrets.RPM_GPG_PRIVATE_KEY }}
+          GPG_KEY_ID: ${{ secrets.RPM_GPG_KEY_ID }}
+          GPG_PASSPHRASE: ${{ secrets.RPM_GPG_PASSPHRASE }}
+        run: |
+          export GNUPGHOME=/tmp/gnupg
+          mkdir -p "$GNUPGHOME"
+          chmod 700 "$GNUPGHOME"
+
+          printf '%s\n' "$GPG_PRIVATE_KEY" | gpg --batch --import
+
+          cat >> ~/.rpmmacros <<EOF
+          %_signature gpg
+          %_gpg_digest_algo sha256
+          %_gpg_name $GPG_KEY_ID
+          %__gpg /usr/bin/gpg
+          %__gpg_sign_cmd %{__gpg} \\
+            --batch --yes --no-tty --pinentry-mode loopback \\
+            --passphrase '$GPG_PASSPHRASE' \\
+            -u '%{_gpg_name}' -sbo %{__signature_filename} %{__plaintext_filename}
+          EOF
+
+          echo "Signing RPMs under $HOME/rpmbuild..."
+          find "$HOME/rpmbuild" -type f -name '*.rpm' -print0 | \
+            xargs -0 -n1 rpmsign --addsign
+
+          echo "Signed RPMs:"
+          find "$HOME/rpmbuild" -type f -name '*.rpm' -exec rpm -qip {} \; | grep -E '^(Name|Version|Release|Signature)'
+
+      - name: Detect HOME in container
+        id: homedir
+        run: echo "dir=$HOME" >> "$GITHUB_OUTPUT"
+
+      - name: Upload RPM artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: duagon-13y063-90-${{ steps.vars.outputs.version }}-${{ matrix.target.label }}
+          path: |
+            ${{ steps.homedir.outputs.dir }}/rpmbuild/RPMS/**/*.rpm
+            ${{ steps.homedir.outputs.dir }}/rpmbuild/SRPMS/**/*.src.rpm
+          if-no-files-found: error
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+
+      - name: Create GitHub Release and upload RPMs
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          files: |
+            dist/**/*.rpm
+            dist/**/*.src.rpm

@@ -1,0 +1,12 @@
+[Unit]
+Description= Shuts down cell modems
+DefaultDependencies=no
+Before=shutdown.target reboot.target halt.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/cell_modem_power_ctrl.sh --power off --logdir /var/log/
+TimeoutStartSec=30
+
+[Install]
+WantedBy=shutdown.target reboot.target halt.target

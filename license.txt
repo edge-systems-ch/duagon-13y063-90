@@ -1,0 +1,20 @@
+*** Summary of licenses used in the tool 13Y063-90 ***
+
+
+The following files of the tool are available under MIT license.
+
+1. linux/bin/13Y063-90
+2. linux/bin/13Y063-90_minimal
+3. 13Y063.c
+4. linux/13Y063-90_minimal.c
+5. Source code of linux/hidapi_minimal
+6. Source code of cJSON/
+
+
+The executable 13Y063-90 is linked against hidapi library (available in the
+folder hidapi). The hidapi library is available under three different licenses:
+
+1. BSD (Please refer to hidapi/LICENSE-bsd.txt)
+2. GPL (Please refer to hidapi/LICENSE-gpl3.txt)
+3. Original hidapi license (Please refer to hidapi/LICENSE-orig.txt)
+

@@ -1,0 +1,8 @@
+This source code is copied from the public github repository cJSON:
+https://github.com/DaveGamble/cJSON.git
+License: MIT license
+
+Release:
+Version tag: 1.7.18
+Commit id: acc76239bee01d8e9c858ae2cab296704e52d916
+Date: 2024-05-13
