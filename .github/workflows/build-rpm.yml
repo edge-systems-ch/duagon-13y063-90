@@ -21,8 +21,12 @@ jobs:
       image: ${{ matrix.target.image }}
 
     steps:
+      - name: Install git for checkout
+        run: |
+          dnf -y install git
+
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           submodules: recursive
 
@@ -46,7 +50,9 @@ jobs:
             gcc \
             make \
             tar \
-            gzip
+            gzip \
+            pkgconf-pkg-config \
+            libusb1-devel
 
       - name: Setup rpmbuild tree
         run: |
@@ -124,7 +130,7 @@ jobs:
         run: echo "dir=$HOME" >> "$GITHUB_OUTPUT"
 
       - name: Upload RPM artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: duagon-13y063-90-${{ steps.vars.outputs.version }}-${{ matrix.target.label }}
           path: |
@@ -140,14 +146,14 @@ jobs:
 
     steps:
       - name: Download all build artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v6
         with:
           path: dist
 
       - name: Create GitHub Release and upload RPMs
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ github.ref_name }}
           files: |
-            dist/**/*.rpm
-            dist/**/*.src.rpm
+            dist/**/RPMS/**/*.rpm
+            dist/**/SRPMS/**/*.src.rpm
